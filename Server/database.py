@@ -1,9 +1,14 @@
-import sqlalchemy as alchemy;
-import sqlalchemy.ext.declarative as alchemyExt;
-import sqlalchemy.orm as alchemyOrm;
+from typing import List
+import sqlalchemy as alchemy
+import sqlalchemy.ext.declarative as alchemyExt
+import sqlalchemy.orm as alchemyOrm
+
 engine = alchemy.create_engine('sqlite:///rowery.db', echo=True)
 
 Base = alchemyExt.declarative_base()
+
+class Rental:
+   pass
 
 class User(Base):
    __tablename__ = 'User'
@@ -11,15 +16,16 @@ class User(Base):
    id = alchemy.Column(alchemy.Integer, primary_key=True, autoincrement=True)
    username = alchemy.Column(alchemy.String(30), unique=True)
    passwordHash = alchemy.Column(alchemy.String(255))
-   balance = alchemy.Column(alchemy.Integer, default=0)
-   rentals = alchemyOrm.relationship("Rental", back_populates="user")
+   balance = alchemy.Column(alchemy.Integer, default=0, nullable=False)
+   active = alchemy.Column(alchemy.Boolean, default=False, nullable=False)
+   rentals: List[Rental] = alchemyOrm.relationship("Rental", back_populates="user")
 
 class Rental(Base):
    __tablename__ = 'Rental'
 
    id = alchemy.Column(alchemy.Integer, primary_key=True, autoincrement=True)
    userId = alchemy.Column(alchemy.ForeignKey('User.id'), nullable=False)
-   user = alchemyOrm.relationship("User", back_populates="rentals")
+   user: List[User] = alchemyOrm.relationship("User", back_populates="rentals")
    timestamp_start = alchemy.Column(alchemy.DateTime, nullable=False)
    timestamp_stop = alchemy.Column(alchemy.DateTime)
 
@@ -32,4 +38,4 @@ class Terminal(Base):
 
 Base.metadata.create_all(engine)
 Session = alchemyOrm.sessionmaker(bind = engine)
-session = Session()
+session: alchemyOrm.Session = Session()
