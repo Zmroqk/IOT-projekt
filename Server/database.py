@@ -15,6 +15,7 @@ class User(Base):
 
    id = alchemy.Column(alchemy.Integer, primary_key=True, autoincrement=True)
    email = alchemy.Column(alchemy.String(30), unique=True)
+   card_id = alchemy.Column(alchemy.String(255), unique=True)
    passwordHash = alchemy.Column(alchemy.String(255))
    balance = alchemy.Column(alchemy.Integer, default=0, nullable=False)
    active = alchemy.Column(alchemy.Boolean, default=False, nullable=False)
@@ -37,6 +38,14 @@ class Terminal(Base):
    passwordHash = alchemy.Column(alchemy.String(255))
    rentalCount = alchemy.Column(alchemy.Integer, nullable=False)
 
+class Log(Base):
+   __tablename__ = 'Logs'
+
+   id = alchemy.Column(alchemy.Integer, primary_key=True, autoincrement=True)
+   card_id = alchemy.Column(alchemy.String(255))
+   timestamp = alchemy.Column(alchemy.DateTime)
+   log = alchemy.Column(alchemy.String(255))
+
 Base.metadata.create_all(engine)
-Session = alchemyOrm.sessionmaker(bind = engine)
+Session = alchemyOrm.sessionmaker(bind = engine, autoflush=False)
 session: alchemyOrm.Session = Session()
