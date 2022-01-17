@@ -6,17 +6,18 @@ import database as db
 broker = '192.168.56.1'
 server_client = 'Server'
 port = 1883
-server_topic_start = 'terminal/+/+/start'
-server_topic_stop = 'terminal/+/+/stop'
+server_terminal = 'terminal/+'
+# server_rerminal_response = 'terminal/+/response'
 server_register_user = 'user/+/register'
 
 cost_for_an_hour = 500
 
 def connect_mqtt():
-   def on_connect(client, userdata, flags, rc):
-      pass
+   def on_connect(client: mqtt_client.Client, userdata, flags, rc):
+      if rc == 5:
+         print('MQTT BROKER: Authentication error')
    client = mqtt_client.Client(server_client)
-   client.username_pw_set(None)
+   client.username_pw_set('server', 'ServerPassword')
    client.on_connect = on_connect
    client.connect(broker, port)
    return client
@@ -31,7 +32,7 @@ def subscribe_terminals(client: mqtt_client.Client):
          user = db.session.query(db.User).get(split_topic[1])
          user.card_id = msg.payload
          log_to_database(msg.payload, f'User: {user.id} card: {user.card_id} registered')
-      elif len(split_topic) == 4:
+      elif len(split_topic) == 2:
          terminal_id = split_topic[1]
          card_id = split_topic[2]
 
@@ -52,7 +53,7 @@ def subscribe_terminals(client: mqtt_client.Client):
          elif user.active is True:
             stop_message(user, terminal)
       db.session.commit()
-   client.subscribe([(server_topic_start, 1), (server_topic_stop, 1), (server_register_user, 1)])
+   client.subscribe([(server_terminal, 1), (server_register_user, 1)])
    client.on_message = on_message
 
 def start_message(user: db.User, terminal: db.Terminal):
@@ -63,14 +64,14 @@ def start_message(user: db.User, terminal: db.Terminal):
       rental.timestamp_start = datetime.now()
       terminal.rentalCount -= 1
       db.session.add(rental)
-      client.publish(f'terminal/{terminal.id}/{user.id}/allow')
+      client.publish(f'terminal/{terminal.id}/response', 'allow')
       log_to_database(user.card_id, f'Rental for card: {user.card_id} started')
    else:
       if terminal.rentalCount <= 0:
-         client.publish(f'terminal/{terminal.id}/{user.id}/response', payload="Nothing to rent")
+         client.publish(f'terminal/{terminal.id}/response', payload="denied.Nothing to rent")
          log_to_database(user.card_id, f'Rental for card: {user.card_id} denied. Nothing to rent on terminal: {terminal.id}')
       else:
-         client.publish(f'terminal/{terminal.id}/{user.id}/response', payload="Not enough funds")
+         client.publish(f'terminal/{terminal.id}/response', payload="denied.Not enough funds")
          log_to_database(user.card_id, f'Rental for card: {user.card_id} denied. Not enough funds')
 
 def stop_message(user: db.User, terminal: db.Terminal):
