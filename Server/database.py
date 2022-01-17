@@ -3,7 +3,7 @@ import sqlalchemy as alchemy
 import sqlalchemy.ext.declarative as alchemyExt
 import sqlalchemy.orm as alchemyOrm
 
-engine = alchemy.create_engine('sqlite:///rowery.db', echo=True)
+engine = alchemy.create_engine('sqlite:///rowery.db')
 
 Base = alchemyExt.declarative_base()
 
@@ -19,6 +19,7 @@ class User(Base):
    passwordHash = alchemy.Column(alchemy.String(255))
    balance = alchemy.Column(alchemy.Integer, default=0, nullable=False)
    active = alchemy.Column(alchemy.Boolean, default=False, nullable=False)
+   isAdmin = alchemy.Column(alchemy.Boolean, default=False, nullable=False)
    rentals: List[Rental] = alchemyOrm.relationship("Rental", back_populates="user")
 
 class Rental(Base):
@@ -38,6 +39,13 @@ class Terminal(Base):
    passwordHash = alchemy.Column(alchemy.String(255))
    rentalCount = alchemy.Column(alchemy.Integer, nullable=False)
 
+class RegisterTerminal(Base):
+   __tablename__ = 'RegisterTerminal'
+
+   id = alchemy.Column(alchemy.Integer, primary_key=True, autoincrement=True)
+   terminalName = alchemy.Column(alchemy.String(30), nullable=False)
+   passwordHash = alchemy.Column(alchemy.String(255))
+
 class Log(Base):
    __tablename__ = 'Logs'
 
@@ -48,4 +56,3 @@ class Log(Base):
 
 Base.metadata.create_all(engine)
 Session = alchemyOrm.sessionmaker(bind = engine, autoflush=False)
-session: alchemyOrm.Session = Session()

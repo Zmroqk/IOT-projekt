@@ -1,5 +1,6 @@
 import ssl
 import sys
+from uuid import uuid4
 import paho.mqtt.client as mqtt
 
 terminal_id = sys.argv[1]
@@ -16,8 +17,7 @@ def interface():
     should_run = True
     while should_run:
         user_id = input('State user id: ')
-        card_id = input('State card id: ')
-        send_message(user_id, card_id)
+        send_message(user_id, str(uuid4()))
 
 def process_message(client, userdata, message):
     """Message payload format: (1) success.<<user_id>>.<<card_id>> (2) failure.<<reason>>"""

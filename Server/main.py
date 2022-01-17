@@ -1,8 +1,12 @@
-import csv
 from datetime import datetime
+from email import message
 import ssl
+import sys
 from paho.mqtt import client as mqtt_client
 import database as db
+import appController as appCont
+
+session: db.alchemyOrm.Session = db.Session()
 
 broker = '192.168.56.1'
 server_client = 'Server'
@@ -13,11 +17,15 @@ server_register_user = 'register/+'
 
 cost_for_an_hour = 500
 
+print_logs = False
+if '--print-logs' in sys.argv:
+   print_logs = True
+
 def connect_mqtt():
    def on_connect(client: mqtt_client.Client, userdata, flags, rc):
-      if rc == 5:
+      if rc == 5 and print_logs:
          print('MQTT BROKER: Authentication error')
-      if client.is_connected():
+      if client.is_connected() and print_logs:
          print('MQTT BROKER: connected')
    client = mqtt_client.Client(server_client)
    client.username_pw_set('server', 'ServerPassword')
@@ -32,19 +40,18 @@ def subscribe_terminals(client: mqtt_client.Client):
       topic: str = msg.topic
       split_topic = topic.split(sep = '/')
       terminal_id = split_topic[1]
-      print(topic)
-      print(terminal_id)
+      if print_logs:
+         print(f'Topic: {topic} Terminal_id: {terminal_id} Message: {msg.payload}')
       if len(split_topic) == 2 and "register" in topic:
-         print("register part")
          msg_split = str(msg.payload.decode("utf-8")).split('.')
          card_id = msg_split[1]
-         user = db.session.query(db.User).get(msg_split[0])
-         users = db.session.query(db.User).filter(db.User.card_id == card_id).all()
-         terminal = db.session.query(db.Terminal).get(terminal_id)
+         user = session.query(db.User).get(msg_split[0])
+         users = session.query(db.User).filter(db.User.card_id == card_id).all()
+         terminal = session.query(db.RegisterTerminal).get(terminal_id)
 
          if terminal is None:
             log_to_database(terminal_id, f'Access denied. Terminal with id: {terminal_id} not found')
-            db.session.commit()
+            session.commit()
             return
 
          if user is None:
@@ -59,26 +66,25 @@ def subscribe_terminals(client: mqtt_client.Client):
                user.card_id = card_id
                client.publish(f'register/{terminal_id}/response', f'success.{user.id}.{user.card_id}')
                log_to_database(msg.payload, f'User: {user.id} card: {user.card_id} registered')
-      elif len(split_topic) == 2 and "terminal" in topic:
-         print("terinal part")   
+      elif len(split_topic) == 2 and "terminal" in topic:  
          card_id = str(msg.payload.decode("utf-8"))
-         user = db.session.query(db.User).filter(db.User.card_id == card_id).first()
+         user = session.query(db.User).filter(db.User.card_id == card_id).first()
          if user is None:
             log_to_database(card_id, f'Access denied. User with card: {card_id} not found')
-            db.session.commit()
+            session.commit()
             return
 
-         terminal = db.session.query(db.Terminal).get(terminal_id)
+         terminal = session.query(db.Terminal).get(terminal_id)
          if terminal is None:
             log_to_database(terminal_id, f'Access denied. Terminal with id: {terminal_id} not found')
-            db.session.commit()
+            session.commit()
             return
 
          if user.active is False:
             start_message(user, terminal)
          elif user.active is True:
             stop_message(user, terminal)
-      db.session.commit()
+      session.commit()
    client.subscribe([(server_terminal, 1), (server_register_user, 1)])
    client.on_message = on_message
 
@@ -89,7 +95,7 @@ def start_message(user: db.User, terminal: db.Terminal):
       user.active = True
       rental.timestamp_start = datetime.now()
       terminal.rentalCount -= 1
-      db.session.add(rental)
+      session.add(rental)
       client.publish(f'terminal/{terminal.id}/response', 'allow.start')
       log_to_database(user.card_id, f'Rental for card: {user.card_id} started')
    else:
@@ -114,20 +120,11 @@ def log_to_database(card_id: str, logmsg: str):
    log.card_id = card_id
    log.timestamp = datetime.now()
    log.log = logmsg
-   db.session.add(log)
-
-def print_logs_to_csv():
-   with open('logs.csv', 'w', newline='') as csvfile:
-      writer = csv.writer(csvfile, dialect='excel')
-      logs = db.session.query(db.Log).all()
-      writer.writerow(['id', 'card_id', 'timestamp', 'log'])
-      for log in logs:
-         writer.writerow([log.id, log.card_id, log.timestamp, log.log])
+   if print_logs:
+      print(f'{log.timestamp}: {log.log}')
+   session.add(log)
 
 client = connect_mqtt()
 subscribe_terminals(client)
-client.loop_forever()
-while(True):
-   cmd = input('Podaj komende: ')
-   if cmd == 'print-logs':
-     print_logs_to_csv()
+client.loop_start()
+appCont.startApp()
