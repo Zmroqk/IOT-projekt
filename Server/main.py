@@ -1,14 +1,15 @@
 import csv
 from datetime import datetime
+import ssl
 from paho.mqtt import client as mqtt_client
 import database as db
 
 broker = '192.168.56.1'
 server_client = 'Server'
-port = 1883
+port = 8883
 server_terminal = 'terminal/+'
 # server_rerminal_response = 'terminal/+/response'
-server_register_user = 'user/+/register'
+server_register_user = 'register/+'
 
 cost_for_an_hour = 500
 
@@ -16,8 +17,12 @@ def connect_mqtt():
    def on_connect(client: mqtt_client.Client, userdata, flags, rc):
       if rc == 5:
          print('MQTT BROKER: Authentication error')
+      if client.is_connected():
+         print('MQTT BROKER: connected')
    client = mqtt_client.Client(server_client)
    client.username_pw_set('server', 'ServerPassword')
+   client.tls_set('../ca.crt', tls_version=ssl.PROTOCOL_TLSv1_2)
+   client.tls_insecure_set(True)
    client.on_connect = on_connect
    client.connect(broker, port)
    return client
@@ -26,16 +31,37 @@ def subscribe_terminals(client: mqtt_client.Client):
    def on_message(client: mqtt_client.Client, userdata, msg: mqtt_client.MQTTMessage):
       topic: str = msg.topic
       split_topic = topic.split(sep = '/')
+      terminal_id = split_topic[1]
       print(topic)
-      print(msg.payload)
-      if len(split_topic) == 3 and topic == server_register_user:
-         user = db.session.query(db.User).get(split_topic[1])
-         user.card_id = msg.payload
-         log_to_database(msg.payload, f'User: {user.id} card: {user.card_id} registered')
-      elif len(split_topic) == 2:
-         terminal_id = split_topic[1]
-         card_id = split_topic[2]
+      print(terminal_id)
+      if len(split_topic) == 2 and "register" in topic:
+         print("register part")
+         msg_split = str(msg.payload.decode("utf-8")).split('.')
+         card_id = msg_split[1]
+         user = db.session.query(db.User).get(msg_split[0])
+         users = db.session.query(db.User).filter(db.User.card_id == card_id).all()
+         terminal = db.session.query(db.Terminal).get(terminal_id)
 
+         if terminal is None:
+            log_to_database(terminal_id, f'Access denied. Terminal with id: {terminal_id} not found')
+            db.session.commit()
+            return
+
+         if user is None:
+            client.publish(f'register/{terminal_id}/response', 'failure.User does not exist')
+            log_to_database(msg.payload, f'User: {msg_split[0]} does not exist')
+
+         else:
+            if len(users) != 0:          
+               client.publish(f'register/{terminal_id}/response', 'failure.Card already in use')
+               log_to_database(msg.payload, f'User: {user.id} cannot be registered with card: {card_id}. Card already in use')
+            else:
+               user.card_id = card_id
+               client.publish(f'register/{terminal_id}/response', f'success.{user.id}.{user.card_id}')
+               log_to_database(msg.payload, f'User: {user.id} card: {user.card_id} registered')
+      elif len(split_topic) == 2 and "terminal" in topic:
+         print("terinal part")   
+         card_id = str(msg.payload.decode("utf-8"))
          user = db.session.query(db.User).filter(db.User.card_id == card_id).first()
          if user is None:
             log_to_database(card_id, f'Access denied. User with card: {card_id} not found')
@@ -64,7 +90,7 @@ def start_message(user: db.User, terminal: db.Terminal):
       rental.timestamp_start = datetime.now()
       terminal.rentalCount -= 1
       db.session.add(rental)
-      client.publish(f'terminal/{terminal.id}/response', 'allow')
+      client.publish(f'terminal/{terminal.id}/response', 'allow.start')
       log_to_database(user.card_id, f'Rental for card: {user.card_id} started')
    else:
       if terminal.rentalCount <= 0:
@@ -80,6 +106,7 @@ def stop_message(user: db.User, terminal: db.Terminal):
    user.balance = user.balance - ((rental_to_stop.timestamp_stop - rental_to_stop.timestamp_start).seconds/3600.) * cost_for_an_hour
    terminal.rentalCount += 1
    user.active = False
+   client.publish(f'terminal/{terminal.id}/response', 'allow.stop')
    log_to_database(user.card_id, f'Rental for card: {user.card_id} stoped')
 
 def log_to_database(card_id: str, logmsg: str):
@@ -99,7 +126,7 @@ def print_logs_to_csv():
 
 client = connect_mqtt()
 subscribe_terminals(client)
-client.loop_start()
+client.loop_forever()
 while(True):
    cmd = input('Podaj komende: ')
    if cmd == 'print-logs':
