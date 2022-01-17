@@ -50,14 +50,13 @@ def subscribe_terminals(client: mqtt_client.Client):
          terminal = session.query(db.RegisterTerminal).get(terminal_id)
 
          if terminal is None:
+            client.publish(f'register/{terminal_id}/response', 'failure.Terminal not registered')
             log_to_database(terminal_id, f'Access denied. Terminal with id: {terminal_id} not found')
-            session.commit()
             return
 
          if user is None:
             client.publish(f'register/{terminal_id}/response', 'failure.User does not exist')
             log_to_database(msg.payload, f'User: {msg_split[0]} does not exist')
-
          else:
             if len(users) != 0:          
                client.publish(f'register/{terminal_id}/response', 'failure.Card already in use')
@@ -70,14 +69,14 @@ def subscribe_terminals(client: mqtt_client.Client):
          card_id = str(msg.payload.decode("utf-8"))
          user = session.query(db.User).filter(db.User.card_id == card_id).first()
          if user is None:
+            client.publish(f'terminal/{terminal_id}/response', payload=f'denied.User with card: {card_id} not found')
             log_to_database(card_id, f'Access denied. User with card: {card_id} not found')
-            session.commit()
             return
 
          terminal = session.query(db.Terminal).get(terminal_id)
          if terminal is None:
+            client.publish(f'terminal/{terminal_id}/response', payload=f'denied.Terminal with id: {terminal_id} not registered')
             log_to_database(terminal_id, f'Access denied. Terminal with id: {terminal_id} not found')
-            session.commit()
             return
 
          if user.active is False:
@@ -123,6 +122,7 @@ def log_to_database(card_id: str, logmsg: str):
    if print_logs:
       print(f'{log.timestamp}: {log.log}')
    session.add(log)
+   session.commit()
 
 client = connect_mqtt()
 subscribe_terminals(client)
