@@ -56,15 +56,15 @@ def subscribe_terminals(client: mqtt_client.Client):
 
          if user is None:
             client.publish(f'register/{terminal_id}/response', 'failure.User does not exist')
-            log_to_database(msg.payload, f'User: {msg_split[0]} does not exist')
+            log_to_database(card_id, f'User: {msg_split[0]} does not exist')
          else:
             if len(users) != 0:          
                client.publish(f'register/{terminal_id}/response', 'failure.Card already in use')
-               log_to_database(msg.payload, f'User: {user.id} cannot be registered with card: {card_id}. Card already in use')
+               log_to_database(card_id, f'User: {user.id} cannot be registered with card: {card_id}. Card already in use')
             else:
                user.card_id = card_id
                client.publish(f'register/{terminal_id}/response', f'success.{user.id}.{user.card_id}')
-               log_to_database(msg.payload, f'User: {user.id} card: {user.card_id} registered')
+               log_to_database(card_id, f'User: {user.id} card: {user.card_id} registered')
       elif len(split_topic) == 2 and "terminal" in topic:  
          card_id = str(msg.payload.decode("utf-8"))
          user = session.query(db.User).filter(db.User.card_id == card_id).first()
