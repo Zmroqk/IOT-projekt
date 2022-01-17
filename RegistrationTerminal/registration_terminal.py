@@ -1,3 +1,4 @@
+import ssl
 import paho.mqtt.client as mqtt
 
 terminal_id = 'RT0'
@@ -13,9 +14,9 @@ def send_message(user_id, card_id):
 def interface():
     should_run = True
     while should_run:
+        user_id = input('State user id: ')
         card_id = input('State card id: ')
-        send_message(card_id)
-        print(card_id)
+        send_message(user_id, card_id)
 
 def process_message(client, userdata, message):
     """Message payload format: (1) success.<<user_id>>.<<card_id>> (2) failure.<<reason>>"""
@@ -32,6 +33,10 @@ def process_message(client, userdata, message):
 
 # Receiver from server register/<<terminal_id>>/response
 def connect_to_broker():
+    client.username_pw_set('server', 'ServerPassword')
+    client.tls_set('ca.crt', tls_version=ssl.PROTOCOL_TLSv1_2)
+    client.tls_insecure_set(True)
+
     client.connect(broker)
     client.on_message = process_message
     client.loop_start()
