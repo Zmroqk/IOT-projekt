@@ -1,10 +1,12 @@
 import csv
+from getpass import getpass
 from uuid import uuid4
 import database as db
 
 session: db.alchemyOrm.Session = db.Session()
 
 def print_logs_to_csv():
+   print('Printed to logs.csv')
    with open('logs.csv', 'w', newline='') as csvfile:
       writer = csv.writer(csvfile, dialect='excel')
       logs = session.query(db.Log).all()
@@ -19,10 +21,10 @@ def login():
       print(f'Incorrect email')
    else:
       if found_user.passwordHash is None:
-         newPassword = input('No password set, please set password: ')
+         newPassword = getpass('No password set, please set password: ')
          found_user.passwordHash = newPassword
          session.commit()
-      password = input('Password: ')
+      password = getpass('Password: ')
       if found_user.passwordHash == password:
          print('Logged in')
          return found_user

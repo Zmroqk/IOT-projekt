@@ -5,7 +5,7 @@ import paho.mqtt.client as mqtt
 terminal_id = sys.argv[1]
 broker = '192.168.56.1'
 
-client = mqtt.Client(sys.argv[1])
+client = mqtt.Client('T' + sys.argv[1])
 
 # Send to server on terminal/<<terminal_id>>
 def send_message(card_id):
