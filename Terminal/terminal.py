@@ -39,7 +39,7 @@ def connect_to_broker():
     client.connect(broker, 8883)
     client.on_message = process_message
     client.loop_start()
-    client.subscribe(f'terminal/{terminal_id}/response')
+    client.subscribe(f'terminal/{terminal_id}/response', 2)
 
 
 def disconnect_from_broker():

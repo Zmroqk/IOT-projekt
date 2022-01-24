@@ -1,5 +1,6 @@
 import csv
 from getpass import getpass
+import os
 from uuid import uuid4
 import database as db
 
@@ -40,6 +41,9 @@ def increaseBalance(user: db.User):
    else:
       print('Increase amount must be larger than 0')
 
+def showBalance(user: db.User):
+   print(f'Your balance: {float(user.balance)/100}')
+
 def registerUser():
    user = db.User()
    user.email = input('Email: ')
@@ -78,11 +82,15 @@ def startApp():
          print_logs_to_csv()
       elif user is not None and cmd == 'increase-balance':
          increaseBalance(user)
+      elif user is not None and cmd == 'show-balance':
+         showBalance(user)
       elif user is not None and user.isAdmin and cmd == 'register-user':
          registerUser()
       elif user is not None and user.isAdmin and cmd == 'register-terminal':
          registerTerminal()
       elif user is not None and user.isAdmin and cmd == 'register-register-terminal':
          registerRegistrationTerminal()
+      elif cmd == 'clear':
+         os.system('cls' if os.name == 'nt' else 'clear')
       else:
          print('Command not found')

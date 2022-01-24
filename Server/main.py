@@ -84,7 +84,7 @@ def subscribe_terminals(client: mqtt_client.Client):
          elif user.active is True:
             stop_message(user, terminal)
       session.commit()
-   client.subscribe([(server_terminal, 1), (server_register_user, 1)])
+   client.subscribe([(server_terminal, 2), (server_register_user, 2)])
    client.on_message = on_message
 
 def start_message(user: db.User, terminal: db.Terminal):
